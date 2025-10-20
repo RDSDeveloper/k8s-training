@@ -23,19 +23,16 @@ spec:
 
   # SYNC POLICY: cómo sincronizar
   syncPolicy:
-    # automated: sync automático cuando detecta cambios en Git
     automated:
-      prune: true # elimina recursos que ya no están en Git
-      selfHeal: true # revierte cambios manuales (kubectl apply)
+      prune: true
+      selfHeal: false  # NO revertir cambios manuales
       allowEmpty: false
-
-    # syncOptions: opciones adicionales
+    
     syncOptions:
-      - CreateNamespace=true # crear namespace si no existe
+      - CreateNamespace=true
       - PrunePropagationPolicy=foreground
       - PruneLast=true
-
-    # retry: reintentar si falla
+    
     retry:
       limit: 5
       backoff:
