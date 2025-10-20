@@ -8,9 +8,9 @@ on:
     branches:
       - main
     paths:
-      - 'apps/backend/**'
-      - '.github/workflows/ci-backend.yml'
-  
+      - "apps/backend/**"
+      - ".github/workflows/ci-backend.yml"
+
   # Manual trigger
   workflow_dispatch:
 
@@ -29,156 +29,155 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-    
-    - name: Install dependencies
-      run: |
-        cd apps/backend
-        pip install -r requirements.txt
-        pip install pytest pytest-cov
-    
-    - name: Run tests
-      run: |
-        cd apps/backend
-        # pytest tests/ --cov=. --cov-report=xml
-        # Por ahora simulamos tests
-        echo "✅ Tests passed (simulated)"
-        python -c "import fastapi; print('FastAPI imported successfully')"
-    
-    - name: Lint code
-      run: |
-        pip install flake8
-        cd apps/backend
-        # flake8 main.py --max-line-length=120
-        echo "✅ Linting passed"
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          cd apps/backend
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+
+      - name: Run tests
+        run: |
+          cd apps/backend
+          # pytest tests/ --cov=. --cov-report=xml
+          # Por ahora simulamos tests
+          echo "✅ Tests passed (simulated)"
+          python -c "import fastapi; print('FastAPI imported successfully')"
+
+      - name: Lint code
+        run: |
+          pip install flake8
+          cd apps/backend
+          # flake8 main.py --max-line-length=120
+          echo "✅ Linting passed"
 
   build:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
-    needs: test  # Solo build si tests pasan
-    
+    needs: test # Solo build si tests pasan
+
     outputs:
       image-tag: ${{ steps.meta.outputs.tags }}
       image-digest: ${{ steps.build.outputs.digest }}
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-    
-    # OPCIÓN 1: DockerHub (si tienes cuenta)
-    # - name: Login to DockerHub
-    #   uses: docker/login-action@v3
-    #   with:
-    #     username: ${{ secrets.DOCKER_USERNAME }}
-    #     password: ${{ secrets.DOCKER_PASSWORD }}
-    
-    - name: Generate image metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        tags: |
-          type=sha,prefix={{branch}}-
-          type=ref,event=branch
-          type=semver,pattern={{version}}
-          type=raw,value=latest,enable={{is_default_branch}}
-    
-    - name: Build Docker image
-      id: build
-      uses: docker/build-push-action@v5
-      with:
-        context: ./apps/backend
-        file: ./apps/backend/Dockerfile
-        # push: true  # Descomenta si tienes DockerHub configurado
-        push: false  # Por ahora solo build
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-    
-    - name: Image built successfully
-      run: |
-        echo "✅ Docker image built"
-        echo "Tags: ${{ steps.meta.outputs.tags }}"
-        echo "Digest: ${{ steps.build.outputs.digest }}"
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # OPCIÓN 1: DockerHub (si tienes cuenta)
+      # - name: Login to DockerHub
+      #   uses: docker/login-action@v3
+      #   with:
+      #     username: ${{ secrets.DOCKER_USERNAME }}
+      #     password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix={{branch}}-
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apps/backend
+          file: ./apps/backend/Dockerfile
+          # push: true  # Descomenta si tienes DockerHub configurado
+          push: false # Por ahora solo build
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Image built successfully
+        run: |
+          echo "✅ Docker image built"
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Digest: ${{ steps.build.outputs.digest }}"
 
   update-manifest:
     name: Update K8s Manifest
     runs-on: ubuntu-latest
     needs: build
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Get short SHA
-      id: sha
-      run: echo "short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-    
-    - name: Update deployment manifest
-      run: |
-        # Actualizar image tag en deployment
-        NEW_TAG="main-${{ steps.sha.outputs.short }}"
-        
-        echo "📝 Updating deployment with new image tag: $NEW_TAG"
-        
-        # Actualizar el deployment.yaml
-        sed -i.bak "s|image: invasions-backend:.*|image: invasions-backend:$NEW_TAG|g" \
-          kubernetes/deployments/backend-deployment.yaml
-        
-        # Verificar cambio
-        git diff kubernetes/deployments/backend-deployment.yaml
-    
-    - name: Commit and push changes
-      run: |
-        git config --local user.email "github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "github-actions[bot]"
-        
-        git add kubernetes/deployments/backend-deployment.yaml
-        
-        if git diff --staged --quiet; then
-          echo "No changes to commit"
-        else
-          git commit -m "🤖 Update backend image to ${{ steps.sha.outputs.short }} [skip ci]"
-          git push
-          echo "✅ Manifest updated and pushed"
-        fi
-    
-    - name: Trigger ArgoCD sync (optional)
-      run: |
-        echo "✅ ArgoCD will auto-sync within 3 minutes"
-        echo "Or manually sync via ArgoCD UI: https://localhost:8080"
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get short SHA
+        id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Update deployment manifest
+        run: |
+          # Actualizar image tag en deployment
+          NEW_TAG="main-${{ steps.sha.outputs.short }}"
+
+          echo "📝 Updating deployment with new image tag: $NEW_TAG"
+
+          # Actualizar el deployment.yaml
+          sed -i.bak "s|image: invasions-backend:.*|image: invasions-backend:$NEW_TAG|g" \
+            kubernetes/deployments/backend-deployment.yaml
+
+          # Verificar cambio
+          git diff kubernetes/deployments/backend-deployment.yaml
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          git add kubernetes/deployments/backend-deployment.yaml
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "🤖 Update backend image to ${{ steps.sha.outputs.short }} [skip ci]"
+            git push
+            echo "✅ Manifest updated and pushed"
+          fi
+
+      - name: Trigger ArgoCD sync (optional)
+        run: |
+          echo "✅ ArgoCD will auto-sync within 3 minutes"
+          echo "Or manually sync via ArgoCD UI: https://localhost:8080"
 
   notify:
     name: Notify Deployment
     runs-on: ubuntu-latest
     needs: [test, build, update-manifest]
     if: always()
-    
-    steps:
-    - name: Deployment summary
-      run: |
-        echo "╔═══════════════════════════════════════════════════════════╗"
-        echo "║          🚀 BACKEND CI/CD PIPELINE COMPLETED             ║"
-        echo "╚═══════════════════════════════════════════════════════════╝"
-        echo ""
-        echo "✅ Tests: ${{ needs.test.result }}"
-        echo "✅ Build: ${{ needs.build.result }}"
-        echo "✅ Update Manifest: ${{ needs.update-manifest.result }}"
-        echo ""
-        echo "📦 Next step: ArgoCD will deploy to Kubernetes"
-        echo "🌐 Monitor at: https://localhost:8080"
 
+    steps:
+      - name: Deployment summary
+        run: |
+          echo "╔═══════════════════════════════════════════════════════════╗"
+          echo "║          🚀 BACKEND CI/CD PIPELINE COMPLETED             ║"
+          echo "╚═══════════════════════════════════════════════════════════╝"
+          echo ""
+          echo "✅ Tests: ${{ needs.test.result }}"
+          echo "✅ Build: ${{ needs.build.result }}"
+          echo "✅ Update Manifest: ${{ needs.update-manifest.result }}"
+          echo ""
+          echo "📦 Next step: ArgoCD will deploy to Kubernetes"
+          echo "🌐 Monitor at: https://localhost:8080"

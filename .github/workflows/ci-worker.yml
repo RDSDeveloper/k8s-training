@@ -8,9 +8,9 @@ on:
     branches:
       - main
     paths:
-      - 'apps/worker/**'
-      - '.github/workflows/ci-worker.yml'
-  
+      - "apps/worker/**"
+      - ".github/workflows/ci-worker.yml"
+
   workflow_dispatch:
 
 env:
@@ -25,66 +25,65 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-    
-    - name: Install dependencies
-      run: |
-        cd apps/worker
-        pip install -r requirements.txt
-        pip install pytest
-    
-    - name: Run tests
-      run: |
-        cd apps/worker
-        echo "✅ Worker tests passed (simulated)"
-        python -c "import redis; import psycopg2; print('Dependencies OK')"
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          cd apps/worker
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run tests
+        run: |
+          cd apps/worker
+          echo "✅ Worker tests passed (simulated)"
+          python -c "import redis; import psycopg2; print('Dependencies OK')"
 
   build:
     name: Build Docker Image
     runs-on: ubuntu-latest
     needs: test
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Build Docker image
-      run: |
-        cd apps/worker
-        docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} .
-        echo "✅ Worker image built"
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          cd apps/worker
+          docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} .
+          echo "✅ Worker image built"
 
   update-manifest:
     name: Update K8s Manifest
     runs-on: ubuntu-latest
     needs: build
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Update deployment
-      run: |
-        NEW_TAG="${{ github.sha }}"
-        sed -i.bak "s|image: invasions-worker:.*|image: invasions-worker:$NEW_TAG|g" \
-          kubernetes/deployments/worker-deployment.yaml
-        
-        git config --local user.email "github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "github-actions[bot]"
-        git add kubernetes/deployments/worker-deployment.yaml
-        
-        if ! git diff --staged --quiet; then
-          git commit -m "🤖 Update worker image to $NEW_TAG [skip ci]"
-          git push
-        fi
 
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update deployment
+        run: |
+          NEW_TAG="${{ github.sha }}"
+          sed -i.bak "s|image: invasions-worker:.*|image: invasions-worker:$NEW_TAG|g" \
+            kubernetes/deployments/worker-deployment.yaml
+
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add kubernetes/deployments/worker-deployment.yaml
+
+          if ! git diff --staged --quiet; then
+            git commit -m "🤖 Update worker image to $NEW_TAG [skip ci]"
+            git push
+          fi

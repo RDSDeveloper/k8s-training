@@ -24,15 +24,11 @@ resource "github_branch_protection" "main" {
     ]
   }
 
-  required_pull_request_reviews {
-    dismiss_stale_reviews           = true
-    require_code_owner_reviews      = false
-    required_approving_review_count = 2
-  }
+  # Sin PR reviews = bot puede hacer push
+  # Pero CI checks SIEMPRE obligatorios
 
-  # false para permitir que github-actions bot haga push
   enforce_admins                  = false
-  require_conversation_resolution = true
+  require_conversation_resolution = false # sin PRs, no hay conversaciones
   allows_force_pushes             = false
   allows_deletions                = false
 }
