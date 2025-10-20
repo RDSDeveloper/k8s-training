@@ -8,7 +8,11 @@ import redis
 import json
 from datetime import datetime
 
-app = FastAPI(title="European Cities & Barbarian Invasions API")
+app = FastAPI(
+    title="European Cities & Barbarian Invasions API",
+    version="1.0.1",
+    description="CI/CD Test - Updated via GitHub Actions"
+)
 
 # CORS for frontend
 app.add_middleware(
