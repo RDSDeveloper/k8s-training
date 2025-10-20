@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: invasions-backend:main-8099f43
+          image: invasions-backend:v3
           imagePullPolicy: Never
           ports:
             - containerPort: 8000
