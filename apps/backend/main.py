@@ -10,8 +10,8 @@ from datetime import datetime
 
 app = FastAPI(
     title="European Cities & Barbarian Invasions API",
-    version="2.0.0",
-    description="Full CI/CD with ArgoCD - Automated Deployment"
+    version="3.0.0",
+    description="100% Automated CI/CD - GitHub Actions + ArgoCD"
 )
 
 # CORS for frontend
