@@ -108,59 +108,41 @@ jobs:
           echo "Tags: ${{ steps.meta.outputs.tags }}"
           echo "Digest: ${{ steps.build.outputs.digest }}"
 
-  update-manifest:
-    name: Update K8s Manifest
-    runs-on: ubuntu-latest
-    needs: build
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Get short SHA
-        id: sha
-        run: echo "short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
-      - name: Update deployment manifest
-        run: |
-          # Actualizar image tag en deployment
-          NEW_TAG="main-${{ steps.sha.outputs.short }}"
-
-          echo "📝 Updating deployment with new image tag: $NEW_TAG"
-
-          # Actualizar el deployment.yaml
-          sed -i.bak "s|image: invasions-backend:.*|image: invasions-backend:$NEW_TAG|g" \
-            kubernetes/deployments/backend-deployment.yaml
-
-          # Verificar cambio
-          git diff kubernetes/deployments/backend-deployment.yaml
-
-      - name: Commit and push changes
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-
-          git add kubernetes/deployments/backend-deployment.yaml
-
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "🤖 Update backend image to ${{ steps.sha.outputs.short }} [skip ci]"
-            git push
-            echo "✅ Manifest updated and pushed"
-          fi
-
-      - name: Trigger ArgoCD sync (optional)
-        run: |
-          echo "✅ ArgoCD will auto-sync within 3 minutes"
-          echo "Or manually sync via ArgoCD UI: https://localhost:8080"
+  # update-manifest:
+  #   name: Update K8s Manifest
+  #   runs-on: ubuntu-latest
+  #   needs: build
+  #
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #       with:
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #
+  #     - name: Get short SHA
+  #       id: sha
+  #       run: echo "short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+  #
+  #     - name: Update deployment manifest
+  #       run: |
+  #         NEW_TAG="main-${{ steps.sha.outputs.short }}"
+  #         sed -i.bak "s|image: invasions-backend:.*|image: invasions-backend:$NEW_TAG|g" \
+  #           kubernetes/deployments/backend-deployment.yaml
+  #
+  #     - name: Commit and push changes
+  #       run: |
+  #         git config --local user.email "github-actions[bot]@users.noreply.github.com"
+  #         git config --local user.name "github-actions[bot]"
+  #         git add kubernetes/deployments/backend-deployment.yaml
+  #         if ! git diff --staged --quiet; then
+  #           git commit -m "🤖 Update backend image [skip ci]"
+  #           git push
+  #         fi
 
   notify:
     name: Notify Deployment
     runs-on: ubuntu-latest
-    needs: [test, build, update-manifest]
+    needs: [test, build]
     if: always()
 
     steps:
@@ -172,7 +154,6 @@ jobs:
           echo ""
           echo "✅ Tests: ${{ needs.test.result }}"
           echo "✅ Build: ${{ needs.build.result }}"
-          echo "✅ Update Manifest: ${{ needs.update-manifest.result }}"
           echo ""
-          echo "📦 Next step: ArgoCD will deploy to Kubernetes"
-          echo "🌐 Monitor at: https://localhost:8080"
+          echo "📝 Note: Manifest update disabled (permissions issue)"
+          echo "🔧 Manual deploy: kubectl apply -f kubernetes/"
