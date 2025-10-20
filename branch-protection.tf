@@ -16,7 +16,7 @@ resource "github_branch_protection" "main" {
   pattern       = "main"
 
   required_status_checks {
-    strict   = true
+    strict = true
     contexts = [
       "Backend CI/CD",
       "Worker CI/CD",
@@ -30,7 +30,8 @@ resource "github_branch_protection" "main" {
     required_approving_review_count = 2
   }
 
-  enforce_admins                  = true
+  # false para permitir que github-actions bot haga push
+  enforce_admins                  = false
   require_conversation_resolution = true
   allows_force_pushes             = false
   allows_deletions                = false
