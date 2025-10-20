@@ -1,10 +1,10 @@
-# ArgoCD Application - Backend
+# ArgoCD Application - Full Stack
 # Esta Application le dice a ArgoCD qué deployar y dónde
 
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: invasions-backend
+  name: invasions-app
   namespace: argocd
 spec:
   # Proyecto (default = sin restricciones)
@@ -12,11 +12,9 @@ spec:
 
   # SOURCE: dónde está el código (Git repo)
   source:
-    # Usando un repo de ejemplo público para la demo
-    # En producción: tu propio repo privado
-    repoURL: https://github.com/argoproj/argocd-example-apps.git
+    repoURL: https://github.com/RDSDeveloper/k8s-training.git
     targetRevision: HEAD
-    path: guestbook # app de ejemplo
+    path: kubernetes # todos los manifests K8s
 
   # DESTINATION: dónde deployar (qué cluster y namespace)
   destination:
