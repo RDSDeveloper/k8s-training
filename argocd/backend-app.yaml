@@ -1,0 +1,46 @@
+# ArgoCD Application - Backend
+# Esta Application le dice a ArgoCD qué deployar y dónde
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: invasions-backend
+  namespace: argocd
+spec:
+  # Proyecto (default = sin restricciones)
+  project: default
+
+  # SOURCE: dónde está el código (Git repo)
+  source:
+    # Usando un repo de ejemplo público para la demo
+    # En producción: tu propio repo privado
+    repoURL: https://github.com/argoproj/argocd-example-apps.git
+    targetRevision: HEAD
+    path: guestbook # app de ejemplo
+
+  # DESTINATION: dónde deployar (qué cluster y namespace)
+  destination:
+    server: https://kubernetes.default.svc # cluster actual
+    namespace: default
+
+  # SYNC POLICY: cómo sincronizar
+  syncPolicy:
+    # automated: sync automático cuando detecta cambios en Git
+    automated:
+      prune: true # elimina recursos que ya no están en Git
+      selfHeal: true # revierte cambios manuales (kubectl apply)
+      allowEmpty: false
+
+    # syncOptions: opciones adicionales
+    syncOptions:
+      - CreateNamespace=true # crear namespace si no existe
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+
+    # retry: reintentar si falla
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

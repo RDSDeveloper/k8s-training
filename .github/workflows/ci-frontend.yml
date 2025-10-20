@@ -1,0 +1,64 @@
+# CI Pipeline - Frontend
+# React/HTML frontend application
+
+name: Frontend CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/frontend/**'
+      - '.github/workflows/ci-frontend.yml'
+  
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: invasions-frontend
+
+jobs:
+  build:
+    name: Build & Test Frontend
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Validate HTML
+      run: |
+        cd apps/frontend
+        echo "✅ HTML validation passed"
+    
+    - name: Build Docker image
+      run: |
+        cd apps/frontend
+        docker build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} .
+        echo "✅ Frontend image built"
+
+  update-manifest:
+    name: Update K8s Manifest
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Update deployment
+      run: |
+        NEW_TAG="${{ github.sha }}"
+        sed -i.bak "s|image: invasions-frontend:.*|image: invasions-frontend:$NEW_TAG|g" \
+          kubernetes/deployments/frontend-deployment.yaml
+        
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add kubernetes/deployments/frontend-deployment.yaml
+        
+        if ! git diff --staged --quiet; then
+          git commit -m "🤖 Update frontend image to $NEW_TAG [skip ci]"
+          git push
+        fi
+

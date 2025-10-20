@@ -49,3 +49,7 @@ kubeconfig
 tmp/
 temp/
 
+# GitHub Actions
+*.bak
+.github/workflows/*.bak
+
