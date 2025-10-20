@@ -1,0 +1,75 @@
+# Network Policy: Backend API Protection
+# GOAL: Only frontend and ingress can connect to backend
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-network-policy
+  namespace: default
+spec:
+  # Apply to backend pods
+  podSelector:
+    matchLabels:
+      app: backend
+
+  policyTypes:
+    - Ingress # Control incoming traffic
+    - Egress # Control outgoing traffic
+
+  # Ingress rules (who CAN connect to backend)
+  ingress:
+    # Rule 1: Allow from frontend
+    - from:
+        - podSelector:
+            matchLabels:
+              app: frontend
+      ports:
+        - protocol: TCP
+          port: 8000
+
+    # Rule 2: Allow from ingress namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8000
+
+    # Rule 3: Allow from same app (backend to backend)
+    - from:
+        - podSelector:
+            matchLabels:
+              app: backend
+      ports:
+        - protocol: TCP
+          port: 8000
+
+  # Egress rules (where backend CAN connect to)
+  egress:
+    # Rule 1: Allow to PostgreSQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+
+    # Rule 2: Allow DNS resolution
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+
+    # Rule 3: Allow to internet (for external APIs if needed)
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 80

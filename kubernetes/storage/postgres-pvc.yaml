@@ -1,0 +1,14 @@
+# PersistentVolumeClaim: Request for storage
+# The app doesn't care WHERE the storage is, just that it gets X amount
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

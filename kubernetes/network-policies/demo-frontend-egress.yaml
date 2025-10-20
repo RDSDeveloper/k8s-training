@@ -1,0 +1,43 @@
+# DEMO: Frontend EGRESS Policy
+# Controla A DÓNDE puede conectarse el Frontend
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: demo-frontend-egress
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: frontend
+
+  policyTypes:
+    - Egress # Solo controlamos SALIDA
+
+  egress:
+    # Regla 1: Frontend puede conectarse a Backend
+    - to:
+        - podSelector:
+            matchLabels:
+              app: backend
+      ports:
+        - protocol: TCP
+          port: 8000
+
+    # Regla 2: Permitir DNS (necesario para resolver nombres)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+# ¿Qué hace esta policy?
+# ✅ Frontend PUEDE conectarse a Backend:8000
+# ✅ Frontend PUEDE hacer DNS queries
+# ❌ Frontend NO PUEDE conectarse a PostgreSQL (no está en la lista)
+# ❌ Frontend NO PUEDE conectarse a internet
+#
+# NOTA: Esta policy NO controla quién puede conectarse AL frontend
+#       Cualquiera puede intentar conectarse (INGRESS sin restricción)
+

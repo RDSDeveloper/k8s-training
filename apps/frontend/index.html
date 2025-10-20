@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>European Cities & Barbarian Invasions</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Georgia', serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .cities-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .city-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .city-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .city-name {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .city-country {
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+
+        .city-modern {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .invasion-count {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+            font-size: 0.9em;
+        }
+
+        .invasions-view {
+            display: none;
+        }
+
+        .invasions-view.active {
+            display: block;
+        }
+
+        .back-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-bottom: 20px;
+            transition: background 0.2s;
+        }
+
+        .back-button:hover {
+            background: #764ba2;
+        }
+
+        .city-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .invasion-item {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
+
+        .invasion-year {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .invasion-tribe {
+            font-size: 1.3em;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .invasion-origin {
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .invasion-description {
+            color: #444;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .invasion-outcome {
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 4px;
+            color: #856404;
+            border-left: 3px solid #ffc107;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>⚔️ European Cities & Barbarian Invasions</h1>
+            <p class="subtitle">Explore the tumultuous history of Europe (300-1000 AD)</p>
+        </header>
+
+        <div class="content">
+            <!-- Cities List View -->
+            <div id="cities-view">
+                <div class="loading">Loading cities...</div>
+            </div>
+
+            <!-- Invasions Detail View -->
+            <div id="invasions-view" class="invasions-view">
+                <button class="back-button" onclick="showCities()">← Back to Cities</button>
+                <div id="invasions-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin;
+
+        let citiesData = [];
+
+        async function loadCities() {
+            try {
+                const response = await fetch(`${API_URL}/api/cities`);
+                const data = await response.json();
+                citiesData = data.cities;
+                renderCities(citiesData);
+            } catch (error) {
+                document.getElementById('cities-view').innerHTML =
+                    '<div class="error">Error loading cities. Make sure the backend API is running.</div>';
+                console.error('Error:', error);
+            }
+        }
+
+        function renderCities(cities) {
+            const html = `
+                <h2 style="margin-bottom: 20px; color: #333;">Select a City</h2>
+                <div class="cities-grid">
+                    ${cities.map(city => `
+                        <div class="city-card" onclick="loadInvasions(${city.id})">
+                            <div class="city-name">${city.name}</div>
+                            <div class="city-country">${city.country}</div>
+                            <div class="city-modern">Modern: ${city.modern_name}</div>
+                            <div class="invasion-count">
+                                🗡️ ${city.invasion_count} invasion${city.invasion_count !== 1 ? 's' : ''} recorded
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            document.getElementById('cities-view').innerHTML = html;
+        }
+
+        async function loadInvasions(cityId) {
+            try {
+                document.getElementById('invasions-view').innerHTML =
+                    '<div class="loading">Loading invasions...</div>';
+
+                const response = await fetch(`${API_URL}/api/cities/${cityId}/invasions`);
+                const data = await response.json();
+                renderInvasions(data);
+
+                document.getElementById('cities-view').style.display = 'none';
+                document.getElementById('invasions-view').classList.add('active');
+            } catch (error) {
+                document.getElementById('invasions-view').innerHTML =
+                    '<div class="error">Error loading invasions.</div>';
+                console.error('Error:', error);
+            }
+        }
+
+        function renderInvasions(data) {
+            const { city, invasions } = data;
+
+            const html = `
+                <button class="back-button" onclick="showCities()">← Back to Cities</button>
+                <div class="city-header">
+                    <h2 style="margin-bottom: 10px;">${city.name}, ${city.country}</h2>
+                    <p>Modern day: ${city.modern_name}</p>
+                </div>
+                
+                ${invasions.length === 0 ?
+                    '<p style="text-align: center; color: #666;">No invasions recorded for this city.</p>' :
+                    invasions.map(inv => `
+                        <div class="invasion-item">
+                            <div class="invasion-year">${inv.year} AD</div>
+                            <div class="invasion-tribe">⚔️ ${inv.tribe_name}</div>
+                            <div class="invasion-origin">Origin: ${inv.origin}${inv.leader ? ` | Leader: ${inv.leader}` : ''}</div>
+                            <div class="invasion-description">${inv.description}</div>
+                            ${inv.outcome ? `<div class="invasion-outcome"><strong>Outcome:</strong> ${inv.outcome}</div>` : ''}
+                        </div>
+                    `).join('')
+                }
+            `;
+
+            document.getElementById('invasions-view').innerHTML = html;
+        }
+
+        function showCities() {
+            document.getElementById('cities-view').style.display = 'block';
+            document.getElementById('invasions-view').classList.remove('active');
+        }
+
+        // Load cities on page load
+        loadCities();
+    </script>
+</body>
+
+</html>

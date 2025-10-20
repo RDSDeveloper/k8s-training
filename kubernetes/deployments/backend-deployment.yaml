@@ -1,0 +1,95 @@
+# Backend API Deployment - FastAPI
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  labels:
+    app: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: invasions-backend:v3
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8000
+
+          env:
+            - name: DB_HOST
+              value: "postgres-service"
+
+            - name: DB_PORT
+              value: "5432"
+
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: POSTGRES_DB
+
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: POSTGRES_USER
+
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+
+            - name: REDIS_HOST
+              value: "redis-service"
+
+            - name: REDIS_PORT
+              value: "6379"
+
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+
+          # Startup Probe - espera a que la app inicialice
+          startupProbe:
+            httpGet:
+              path: /health/startup
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 12 # 12 × 5s = 60s máximo para arrancar
+            timeoutSeconds: 3
+
+          # Liveness Probe - ¿está vivo el proceso?
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8000
+            initialDelaySeconds: 0 # startup probe ya validó
+            periodSeconds: 10
+            failureThreshold: 3 # 3 fallos → reinicia pod
+            timeoutSeconds: 5
+            successThreshold: 1
+
+          # Readiness Probe - ¿puede recibir tráfico?
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8000
+            initialDelaySeconds: 0 # startup probe ya validó
+            periodSeconds: 5
+            failureThreshold: 3 # 3 fallos → saca del service
+            successThreshold: 1 # 1 éxito → agrega al service
+            timeoutSeconds: 3

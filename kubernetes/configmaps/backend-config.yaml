@@ -1,0 +1,36 @@
+# ConfigMap: Non-sensitive configuration for the backend service
+# These values can be seen by anyone with cluster access
+# Use this for: app settings, feature flags, public endpoints
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: default
+  labels:
+    app: backend
+data:
+  # Application settings
+  APP_NAME: "Backend API Service"
+  ENVIRONMENT: "development"
+  LOG_LEVEL: "debug"
+
+  # Feature flags (boolean as strings)
+  FEATURE_FLAG_NEW_API: "true"
+  FEATURE_FLAG_METRICS: "true"
+
+  # Public endpoints
+  FRONTEND_URL: "http://localhost:3000"
+
+  # Database connection (non-sensitive parts)
+  DB_HOST: "postgres-service.default.svc.cluster.local"
+  DB_PORT: "5432"
+  DB_NAME: "myapp_db"
+
+  # You can also store entire config files as multiline strings
+  app_settings.json: |
+    {
+      "maxConnections": 100,
+      "timeout": 30,
+      "retryAttempts": 3
+    }

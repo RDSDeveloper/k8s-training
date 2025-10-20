@@ -1,0 +1,51 @@
+# Network Policy: Frontend Protection
+# GOAL: Frontend can only talk to backend, not PostgreSQL
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-network-policy
+  namespace: default
+spec:
+  # Apply to frontend pods
+  podSelector:
+    matchLabels:
+      app: frontend
+
+  policyTypes:
+    - Ingress
+    - Egress
+
+  # Ingress rules (who can connect to frontend)
+  ingress:
+    # Rule 1: Allow from ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 80
+
+  # Egress rules (where frontend can connect to)
+  egress:
+    # Rule 1: Allow to backend ONLY
+    - to:
+        - podSelector:
+            matchLabels:
+              app: backend
+      ports:
+        - protocol: TCP
+          port: 8000
+
+    # Rule 2: Allow DNS resolution
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+
+    # Note: PostgreSQL is NOT in the egress list
+    # This means frontend CANNOT connect to postgres-service

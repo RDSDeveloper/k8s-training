@@ -1,0 +1,30 @@
+# STEP 2: Deployment with Replicas
+# A Deployment manages multiple replicas of your app
+# If a pod dies, it automatically recreates it
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  # We want 3 replicas
+  replicas: 3
+
+  # Selector to identify the pods
+  selector:
+    matchLabels:
+      app: nginx
+
+  # Pod template (same as before)
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 80

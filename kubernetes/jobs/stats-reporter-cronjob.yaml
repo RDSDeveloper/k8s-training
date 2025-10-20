@@ -1,0 +1,108 @@
+# CronJob - Reportar estadísticas (cada minuto para testing)
+# En producción cambiarías a "0 * * * *" (cada hora)
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: stats-reporter
+  labels:
+    app: stats-reporter
+spec:
+  # Cada minuto (para testing)
+  # Formato: minuto hora día mes día-semana
+  # */1 * * * * = cada minuto
+  # 0 * * * * = cada hora (en el minuto 0)
+  # 0 0 * * * = cada día a medianoche
+  # 0 0 * * 0 = cada domingo a medianoche
+  schedule: "*/1 * * * *"
+
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      ttlSecondsAfterFinished: 180 # 3 minutos
+
+      template:
+        metadata:
+          labels:
+            app: stats-reporter
+        spec:
+          restartPolicy: Never
+
+          containers:
+            - name: reporter
+              image: postgres:15-alpine
+
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  echo "📊 REPORTE DE ESTADÍSTICAS"
+                  echo "=========================="
+                  echo "🕐 Timestamp: $(date)"
+                  echo ""
+
+                  PGPASSWORD=$DB_PASSWORD psql \
+                    -h $DB_HOST \
+                    -p $DB_PORT \
+                    -U $DB_USER \
+                    -d $DB_NAME \
+                    << 'EOF'
+
+                  \echo '🏙️  CIUDADES:'
+                  SELECT COUNT(*) as total_cities FROM cities;
+
+                  \echo ''
+                  \echo '⚔️  INVASIONES:'
+                  SELECT COUNT(*) as total_invasions FROM invasions;
+
+                  \echo ''
+                  \echo '📈 ANALYTICS (últimas 24h):'
+                  SELECT 
+                    COUNT(*) as events_24h
+                  FROM analytics 
+                  WHERE created_at > NOW() - INTERVAL '24 hours';
+
+                  \echo ''
+                  \echo '🔝 TOP 5 CIUDADES MÁS CONSULTADAS:'
+                  SELECT 
+                    event_data->>'city_name' as city,
+                    COUNT(*) as views
+                  FROM analytics
+                  WHERE event_type = 'city_invasions_viewed'
+                  GROUP BY event_data->>'city_name'
+                  ORDER BY views DESC
+                  LIMIT 5;
+
+                  EOF
+
+                  echo ""
+                  echo "✅ Reporte completado"
+
+              env:
+                - name: DB_HOST
+                  value: "postgres-service"
+
+                - name: DB_PORT
+                  value: "5432"
+
+                - name: DB_NAME
+                  valueFrom:
+                    configMapKeyRef:
+                      name: postgres-config
+                      key: POSTGRES_DB
+
+                - name: DB_USER
+                  valueFrom:
+                    configMapKeyRef:
+                      name: postgres-config
+                      key: POSTGRES_USER
+
+                - name: DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: POSTGRES_PASSWORD

@@ -1,0 +1,33 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: backend-alerts
+  namespace: monitoring
+  labels:
+    release: prometheus
+spec:
+  groups:
+    - name: backend-app
+      interval: 30s
+      rules:
+        - alert: BackendHighCPU
+          expr: |
+            sum(rate(container_cpu_usage_seconds_total{namespace="default",pod=~"backend-.*"}[5m])) by (pod) > 0.05
+          for: 1m
+          labels:
+            severity: warning
+            component: backend
+          annotations:
+            summary: "Backend pod {{ $labels.pod }} usando mucho CPU"
+            description: "CPU usage: {{ $value | humanize }}"
+
+        - alert: BackendPodDown
+          expr: |
+            kube_pod_status_phase{namespace="default",pod=~"backend-.*",phase!="Running"} > 0
+          for: 2m
+          labels:
+            severity: critical
+            component: backend
+          annotations:
+            summary: "Backend pod {{ $labels.pod }} no está corriendo"
+            description: "Estado: {{ $labels.phase }}"

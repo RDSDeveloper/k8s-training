@@ -1,0 +1,122 @@
+# CronJob - Limpieza de analytics viejos (ejecuta diariamente)
+# Elimina eventos de analytics mayores a 30 días
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: analytics-cleanup
+  labels:
+    app: analytics-cleanup
+spec:
+  # schedule: formato cron (minuto hora día mes día-semana)
+  # "0 3 * * *" = 3:00 AM todos los días
+  schedule: "0 3 * * *"
+
+  # timezone: zona horaria (requiere K8s 1.25+)
+  # timeZone: "Europe/Madrid"
+
+  # concurrencyPolicy: qué hacer si el job anterior aún está corriendo
+  # Allow = permite múltiples jobs simultáneos
+  # Forbid = no ejecuta si hay uno corriendo
+  # Replace = mata el anterior y ejecuta el nuevo
+  concurrencyPolicy: Forbid
+
+  # successfulJobsHistoryLimit: cuántos jobs completados mantener
+  successfulJobsHistoryLimit: 3
+
+  # failedJobsHistoryLimit: cuántos jobs fallidos mantener
+  failedJobsHistoryLimit: 1
+
+  # startingDeadlineSeconds: si un job no inicia en X segundos, lo marca como fallido
+  startingDeadlineSeconds: 300 # 5 minutos
+
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      ttlSecondsAfterFinished: 86400 # 24 horas
+
+      template:
+        metadata:
+          labels:
+            app: analytics-cleanup
+        spec:
+          restartPolicy: OnFailure
+
+          containers:
+            - name: cleanup
+              image: postgres:15-alpine
+
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  echo "🧹 Iniciando limpieza de analytics..."
+                  echo "📅 Fecha actual: $(date)"
+
+                  # Calcular fecha hace 30 días
+                  CUTOFF_DATE=$(date -d '30 days ago' '+%Y-%m-%d' 2>/dev/null || date -v-30d '+%Y-%m-%d')
+                  echo "🗑️  Eliminando eventos antes de: $CUTOFF_DATE"
+
+                  # Contar eventos a eliminar
+                  COUNT=$(PGPASSWORD=$DB_PASSWORD psql \
+                    -h $DB_HOST \
+                    -p $DB_PORT \
+                    -U $DB_USER \
+                    -d $DB_NAME \
+                    -t -c "SELECT COUNT(*) FROM analytics WHERE created_at < '$CUTOFF_DATE';")
+
+                  echo "📊 Eventos a eliminar: $COUNT"
+
+                  if [ "$COUNT" -gt 0 ]; then
+                    # Eliminar eventos viejos
+                    PGPASSWORD=$DB_PASSWORD psql \
+                      -h $DB_HOST \
+                      -p $DB_PORT \
+                      -U $DB_USER \
+                      -d $DB_NAME \
+                      -c "DELETE FROM analytics WHERE created_at < '$CUTOFF_DATE';"
+                    
+                    if [ $? -eq 0 ]; then
+                      echo "✅ Limpieza completada: $COUNT eventos eliminados"
+                    else
+                      echo "❌ Limpieza falló"
+                      exit 1
+                    fi
+                  else
+                    echo "✅ No hay eventos para eliminar"
+                  fi
+
+                  # Estadísticas finales
+                  TOTAL=$(PGPASSWORD=$DB_PASSWORD psql \
+                    -h $DB_HOST \
+                    -p $DB_PORT \
+                    -U $DB_USER \
+                    -d $DB_NAME \
+                    -t -c "SELECT COUNT(*) FROM analytics;")
+
+                  echo "📈 Eventos restantes en analytics: $TOTAL"
+
+              env:
+                - name: DB_HOST
+                  value: "postgres-service"
+
+                - name: DB_PORT
+                  value: "5432"
+
+                - name: DB_NAME
+                  valueFrom:
+                    configMapKeyRef:
+                      name: postgres-config
+                      key: POSTGRES_DB
+
+                - name: DB_USER
+                  valueFrom:
+                    configMapKeyRef:
+                      name: postgres-config
+                      key: POSTGRES_USER
+
+                - name: DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: POSTGRES_PASSWORD

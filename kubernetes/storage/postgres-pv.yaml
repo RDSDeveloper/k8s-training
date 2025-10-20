@@ -1,0 +1,19 @@
+# PersistentVolume: Physical storage (like a hard drive)
+# In production, this would be EBS (AWS), Persistent Disk (GCP), etc.
+# In Minikube, it's just a directory on the node
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgres-pv
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce # Only one pod can mount this at a time
+  hostPath:
+    path: "/mnt/data/postgres" # Path on the Minikube node
+

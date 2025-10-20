@@ -1,0 +1,46 @@
+# Network Policy: PostgreSQL Database Protection
+# GOAL: Only backend and worker pods can connect to PostgreSQL
+# Block: Frontend, random pods, external access
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-network-policy
+  namespace: default
+spec:
+  # Apply this policy to PostgreSQL pods
+  podSelector:
+    matchLabels:
+      app: postgres
+
+  # Policy type
+  policyTypes:
+    - Ingress # Control incoming traffic ONLY
+
+  # Ingress rules (who CAN connect)
+  ingress:
+    # Rule 1: Allow traffic from backend pods
+    - from:
+        - podSelector:
+            matchLabels:
+              app: backend
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Rule 2: Allow traffic from worker pods
+    - from:
+        - podSelector:
+            matchLabels:
+              app: worker
+      ports:
+        - protocol: TCP
+          port: 5432
+
+---
+# What this policy does:
+# ✅ Backend pods CAN connect to PostgreSQL:5432
+# ✅ Worker pods CAN connect to PostgreSQL:5432
+# ❌ Frontend pods CANNOT connect to PostgreSQL:5432
+# ❌ Random pods CANNOT connect to PostgreSQL:5432
+# ✅ PostgreSQL can connect OUT (no egress restrictions)
+

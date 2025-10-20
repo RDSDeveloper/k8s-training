@@ -1,0 +1,93 @@
+# Job - Backup one-time de Postgres
+# Uso: kubectl apply -f postgres-backup-job.yaml
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-backup
+  labels:
+    app: postgres-backup
+spec:
+  # backoffLimit: número máximo de reintentos si falla
+  backoffLimit: 3
+
+  # ttlSecondsAfterFinished: auto-elimina el Job después de completar
+  ttlSecondsAfterFinished: 3600 # 1 hora después
+
+  template:
+    metadata:
+      labels:
+        app: postgres-backup
+    spec:
+      # restartPolicy para Jobs: Never o OnFailure
+      # Never = no reinicia, crea nuevo pod
+      # OnFailure = reinicia el mismo pod si falla
+      restartPolicy: OnFailure
+
+      containers:
+        - name: backup
+          image: postgres:15-alpine
+
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "🔵 Iniciando backup de Postgres..."
+              TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+              BACKUP_FILE="/backups/backup_${TIMESTAMP}.sql"
+
+              # Crear directorio si no existe
+              mkdir -p /backups
+
+              # Hacer backup con pg_dump
+              PGPASSWORD=$DB_PASSWORD pg_dump \
+                -h $DB_HOST \
+                -p $DB_PORT \
+                -U $DB_USER \
+                -d $DB_NAME \
+                -f $BACKUP_FILE
+
+              if [ $? -eq 0 ]; then
+                echo "✅ Backup completado: $BACKUP_FILE"
+                ls -lh $BACKUP_FILE
+                echo "📊 Contenido del backup:"
+                head -20 $BACKUP_FILE
+              else
+                echo "❌ Backup falló"
+                exit 1
+              fi
+
+          env:
+            - name: DB_HOST
+              value: "postgres-service"
+
+            - name: DB_PORT
+              value: "5432"
+
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: POSTGRES_DB
+
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: POSTGRES_USER
+
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+
+          # En producción, montarías un PVC aquí
+          volumeMounts:
+            - name: backup-storage
+              mountPath: /backups
+
+      volumes:
+        - name: backup-storage
+          emptyDir: {} # Temporal (se pierde al eliminar el pod)
+          # En producción: persistentVolumeClaim
