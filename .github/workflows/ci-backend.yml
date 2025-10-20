@@ -20,11 +20,6 @@ env:
   # En producción, usa tu usuario de DockerHub
   # DOCKER_USERNAME: tu-usuario
 
-# Permisos para que el bot pueda hacer push
-permissions:
-  contents: write
-  pull-requests: read
-
 jobs:
   test:
     name: Run Tests
